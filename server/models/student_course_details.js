@@ -4,7 +4,7 @@ module.exports = (sequelize, Sequelize) => {
         type:Sequelize.STRING
       },
       rating:{
-        type:Sequelize.ENUM(1,2,3,4,5)
+        type:Sequelize.INTEGER
       },
       review:{
         type:Sequelize.STRING

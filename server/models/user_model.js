@@ -6,9 +6,6 @@ module.exports = (sequelize, Sequelize) => {
     password: {
       type: Sequelize.STRING,
     },
-    c_password: {
-      type: Sequelize.STRING,
-    },
     email: {
       type: Sequelize.STRING,
     },
@@ -19,7 +16,7 @@ module.exports = (sequelize, Sequelize) => {
       type: Sequelize.STRING,
     },
     user_type: {
-      type: Sequelize.ENUM('S','I','B'),
+      type: Sequelize.ENUM("S", "I", "B"),
     },
     verified: {
       type: Sequelize.BOOLEAN,

@@ -10,6 +10,7 @@ const nodemailer = require("nodemailer");
 
 require("dotenv").config();
 const key = process.env.secret;
+
 const transporter = nodemailer.createTransport({
   service: "hotmail",
   auth: {
@@ -21,13 +22,6 @@ const tokenList = {};
 exports.register = async (req, res) => {
   try {
     const user_data = req.body;
-    // console.log(user_data)
-    if (user_data.password !== user_data.c_password) {
-      return res.status(202).json({
-        msg: "Password do not match.",
-        success: false,
-      });
-    }
     // Check for the unique Username
 
     const chk_uname = await user.findOne({
@@ -52,8 +46,8 @@ exports.register = async (req, res) => {
         success: false,
       });
     }
-    //email verification
-    //sendOtpVerification(user_data.id,user_data.email)
+   
+  
 
     // The data is valid and new we can register the user
 
@@ -73,28 +67,11 @@ exports.register = async (req, res) => {
           };
           sendOtpVerification(dataObj, res);
           if (data.user_type == "S") {
-            const student = {
-              user_id: data.id,
-              per_id: 1,
-            };
-            Student.create(student);
+            data.createStudent(Student);
           } else if (data.user_type == "I") {
-            const instructor = {
-              user_id: data.id,
-              per_id: 2,
-            };
-            Instructor.create(instructor);
-          } else if (data.user_type == "B") {
-            const instructor = {
-              user_id: data.id,
-              per_id: 3,
-            };
-            Instructor.create(instructor);
+            data.createInstructor(Instructor);
           }
-          //   return  res.status(201).json({
-          //     success: true,
-          //     message:"user created",}
-          //     );
+          
         })
         .catch((err) => {
           console.log("Error:", err);
@@ -108,14 +85,16 @@ exports.register = async (req, res) => {
 //login
 exports.login = async (req, res) => {
   try {
+    console.log(process.env.secret)
     await user
       .findOne({
-        where: { username: req.body.username },
+        where: { email: req.body.email },
       })
       .then((user) => {
+      // return res.json(user)
         if (!user) {
           return res.status(202).json({
-            msg: "Username is not found.",
+            msg: "Email is not found.",
             success: false,
           });
         }
@@ -176,7 +155,7 @@ exports.logout = async (req, res) => {
 exports.currentUser = async (req, res) => {
   try {
     const user_data = await user.findByPk(req.body.user_id, {
-      attributes: { exclude: ["password", "c_password"] },
+      attributes: { exclude: ["password"] },
     });
     console.log("user data: ", user_data);
     return res.json(user_data);
@@ -184,19 +163,7 @@ exports.currentUser = async (req, res) => {
     console.log("Error:", error);
   }
 };
-exports.currentInstructor = async (req, res) => {
-  try {
-    const instructor = await Instructor.findOne({
-      where: { user_id: req.body.user_id },
-    }).then((result) => {
-      console.log(result);
-      if (result != null) res.json({ ok: true });
-      else res.status(403).json({ message: "not an instructor" });
-    });
-  } catch (error) {
-    console.log("Error:", error);
-  }
-};
+
 const sendOtpVerification = async ({ id, email }, res) => {
   try {
     console.log("hey");
@@ -210,8 +177,6 @@ const sendOtpVerification = async ({ id, email }, res) => {
     const saltrounds = 10;
     const hashedotp = await bcrypt.hash(otp, saltrounds);
     const date = new Date();
-    // const exp=date.toISOString().slice(0, 19).replace('T', ' ');
-    //console.log(date);
     date.setHours(date.getHours() + 1);
     console.log(date);
     const verifiData = {
@@ -310,18 +275,14 @@ exports.forgotPass = async (req, res) => {
     console.log(user_data == null);
     //chk user exist or not
     if (user_data == null) {
-      // console.log("api")
+      
       return res.status(202).json({
         msg: "Email not registred.Please register to continue",
         success: false,
       });
     } //user exist and create one time link valid for 15 mins
     else {
-      // console.log(user._id)
-      // return res.status(200).json({
-      //     msg: "Email  registred",
-      //     success: true
-      // });
+     
       const fp_secret = key + user_data.password;
       const payload = {
         email: user_data.email,
@@ -329,7 +290,7 @@ exports.forgotPass = async (req, res) => {
       };
       // res.json(user_data.email)
       const token = jwt.sign(payload, fp_secret, { expiresIn: "15m" });
-      const link = `http://localhost:5000/resetPassword/${user_data.id}/${token}`;
+      const link = `http://localhost:5000/api/user/resetPassword/${user_data.id}/${token}`;
       console.log(link);
       const options = {
         from: process.env.mailid,
@@ -381,7 +342,7 @@ exports.resetPass = async (req, res) => {
   try {
     const { id, token } = req.params;
     var password = req.body.password;
-    var c_password = req.body.c_password;
+    //  var c_password = req.body.c_password;
     const user_data = await user.findByPk(id);
 
     const secret = key + user_data.password;
@@ -394,7 +355,7 @@ exports.resetPass = async (req, res) => {
 
         password = hash;
         const update = await user.update(
-          { password: password, c_password: c_password },
+          { password: password },
           { where: { id: id } }
         );
         console.log(update);
@@ -403,15 +364,26 @@ exports.resetPass = async (req, res) => {
           success: true,
         });
       });
-      // return res.status(200).json({
-      //     msg: "Password reset successfull",
-      //     success: true
-      // });
+      
     } catch (error) {
       console.log(error.message);
       res.status(404).json({ message: error.message });
     }
   } catch (error) {
     res.status(404).json({ message: error.message });
+  }
+};
+exports.changeToIns = async (req, res) => {
+  try {
+    const user_id = req.body.user_id;
+    await user.update({ user_type: "B" }, { where: { id: user_id } });
+    const data = await user.findByPk(user_id);
+    data.createInstructor(Instructor);
+    res.json({
+      status: "success",
+      message: "user changed to instructor",
+    });
+  } catch (error) {
+    console.log("Error:", error);
   }
 };

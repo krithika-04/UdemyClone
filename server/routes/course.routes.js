@@ -4,10 +4,8 @@ module.exports = app => {
     var router = require("express").Router();
 
     router.get("/", courses.fetchAllCourses);
-
-  
-    // Retrieve all courses
-    
-  
+    router.get("/category/:category", courses.fetchCoursesbyCategory);
+    router.get("/:category/:subcategory", courses.fetchCoursesbySubCategory);
+    router.get("/:id", courses.fetchCoursesbyId);
     app.use('/api/courses', router);
   };

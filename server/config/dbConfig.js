@@ -1,5 +1,5 @@
 module.exports = {
-    HOST: "localhost",
+    HOST: "0.0.0.0",
     USER: "root",
     PASSWORD: "root",
     DB: "udemy",

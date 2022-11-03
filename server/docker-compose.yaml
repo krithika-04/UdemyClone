@@ -1,0 +1,29 @@
+version: "3.2"
+services:
+  nodejs:
+    
+    build: 
+      context: .
+    image: krithika12/udemy-clone123
+    environment:
+      - MYSQL_HOST=mysql-app
+      - MYSQL_USER=root
+      - MYSQL_PASS=root
+      - MYSQL_DB=udemy
+    
+    ports:
+      - "5000:5000"
+    container_name: server
+#   mysql:
+#     image: mysql:5.7
+#     environment:
+#       - MYSQL_ROOT_PASSWORD=root
+#       - MYSQL_ROOT_USER=root
+#       - MYSQL_DATABASE=udemy 
+#     volumes:
+#       - mysqldb:/var/lib/mysql:rw
+#       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+#     container_name: mysql-app
+
+# volumes: 
+#   mysqldb:

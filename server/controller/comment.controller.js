@@ -1,21 +1,34 @@
-const { comment } = require("../helper/db");
 const db = require("../helper/db");
 const comments = db.comment;
 const replies = db.reply;
+const users = db.user;
+const courses = db.course;
 const Op = db.Sequelize.Op;
 exports.getAllcomments = async (req, res) => {
   try {
-    const comment = await comments.findAll();
+    const comment = await comments.findAll({
+      where: {
+        CourseId: req.body.course_id,
+      },
+      include: {
+        model: replies,
+      },
+    });
 
-    res.json(result);
+    res.json(comment);
   } catch (error) {
     console.log("Error:", error);
   }
 };
 exports.postComments = async (req, res) => {
   try {
-    let comment = req.body;
-    const result = await comments.create(comment);
+    let { title, description, course_id } = req.body;
+    const userData = await users.findByPk(req.params.id);
+    const result = await userData.createComment({
+      title: title,
+      description: description,
+      CourseId: course_id,
+    });
     res.json(result);
   } catch (error) {
     console.log("Error:", error);
@@ -23,43 +36,20 @@ exports.postComments = async (req, res) => {
 };
 exports.addReply = async (req, res) => {
   try {
-    let reply = req.body;
-    replies.create(reply).then((response) => {
-      console.log(response.id);
-      comments
-        .findOne({ where: { id: response.comment_id } })
-        .then((comment) => {
-          let rep = [];
-          if (isNaN(comment.reply[0])) {
-            console.log("**1**");
-            rep.push(response.id);
-            comment.reply = rep;
-            //console.log(comment.reply)
-          } else {
-            console.log("**2**");
-            rep = comment.reply;
-            rep.push(response.id);
-          }
-
-          comments
-            .update({ reply: rep }, { where: { id: response.comment_id } })
-            .then((result) => {
-              console.log("hello");
-              res.json(result);
-            })
-            .catch((err) => {
-              console.log("Error:", err);
-              //replies.destroy({where:{id:response.id}})
-            });
-        });
+    let { description, comment_id } = req.body;
+    const userData = await users.findByPk(req.params.id);
+    const result = await userData.createReply({
+      description: description,
+      CommentId: comment_id,
     });
-  } catch (error) {
-    console.log("Error:", error);
+    res.json(result);
+  } catch ({ error }) {
+    res.status(400).json(error);
   }
 };
 exports.upvotesInc = async (req, res) => {
   try {
-    const result = await comment.increment(
+    const result = await comments.increment(
       "upvotes",
       { where: { id: req.body.comment_id } },
       { by: 1 }
@@ -73,7 +63,7 @@ exports.upvotesInc = async (req, res) => {
 };
 exports.upvotesDec = async (req, res) => {
   try {
-    const result = await comment.decrement(
+    const result = await comments.decrement(
       "upvotes",
       { where: { id: req.body.comment_id } },
       { by: 1 }

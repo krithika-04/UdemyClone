@@ -1,116 +1,191 @@
 const db = require("../helper/db");
+const students = db.student;
 const carts = db.cart;
 const courses = db.course;
+const cartItems = db.cartItem;
 const Op = db.Sequelize.Op;
 exports.getAllcourses = async (req, res) => {
-  const user_id = req.params.id;
-  const addedCourse = await carts.findOne({ where: { user_id: user_id } });
-  const course = await courses.findAll({
-    where: {
-      id: {
-        [Op.in]: addedCourse.course_id,
+  //get all courses in a specific user's cart
+  try {
+    console.log(req.params.id);
+    const stuData = await students.findOne({
+      where: { UserId: req.params.id },
+    });
+    if (stuData == null) {
+      return res.json({
+        status: "failed",
+        message: "not a student",
+      });
+    }
+    const stuId = stuData.id;
+    const cartData = await carts.findAll({
+      include: {
+        model: courses,
       },
-    },
-  });
-  res.json(course);
+      where: {
+        StudentId: stuId,
+      },
+    });
+    if (cartData) res.json(cartData);
+  } catch (error) {
+    res.status(400).json(error);
+  }
 };
 exports.addTocart = async (req, res) => {
   try {
-    const user_id = req.body.user_id;
-
-    const addedCourses = await carts.findOne({ where: { user_id: user_id } });
-    //const course=await carts.findOne({where:{user_id:req.body.user_id}})
-    //res.json(addedCourses)
-
-    //console.log(addedCourses.course_id)
-    let cartcourses = null;
-    if (addedCourses != null) cartcourses = addedCourses.course_id;
-    const cart = {
-      user_id: req.body.user_id,
-      course_id: [],
-    };
-    if (cartcourses != null) {
-      console.log(cartcourses);
-      cart.course_id.push(cartcourses);
+    console.log(req.params.id);
+    const stuData = await students.findOne({
+      where: { UserId: req.params.id },
+    });
+    if (stuData == null) {
+      return res.json({
+        status: "failed",
+        message: "not a student",
+      });
     }
-    //console.log("hey",req.body.course_id.length)
-
-    for (let i = 0; i < req.body.course_id.length; i++) {
-      cart.course_id.push(req.body.course_id[i]);
-      console.log(req.body.course_id[i]);
-    }
-    console.log(cart);
-    // return;
-    if (addedCourses != null) {
-      carts
-        .update(cart, { where: { user_id: req.body.user_id } })
-        .then(async (result) => {
-          console.log("hello", result);
-          const response = await carts.findOne({
-            where: { user_id: req.body.user_id },
-          });
-          return res.status(200).json(response);
-        })
-        .catch((err) => {
-          console.log(err);
+    const userCart = await carts.findOne({ where: { StudentId: stuData.id } });
+    const course_id = req.body.course_id;
+    const courseData = await courses.findByPk(course_id);
+    const currCourseAmt = courseData.price;
+    console.log(currCourseAmt);
+    if (userCart == null) {
+      // cart doesn't exist so create new cart
+      const cart = await stuData.createCart();
+      const cartItem = await cart.addCourse(courseData);
+      cart.total += currCourseAmt;
+      const response = await cart.save();
+      if (response)
+        res.json({
+          status: "success",
+          message: "added to cart",
+          data: response,
         });
     } else {
-      carts
-        .create(cart)
-        .then((result) => {
-          //console.log(result)
-
-          return res.status(200).json(result);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+      // cart already exist
+      try {
+        const cartItem = await userCart.addCourse(courseData);
+        userCart.total += currCourseAmt;
+        const response = await userCart.save();
+        if (response)
+          res.json({
+            status: "success",
+            message: "added to cart",
+            data: response,
+          });
+      } catch (error) {
+        res.status(400).json(error);
+      }
     }
   } catch (error) {
-    console.log("Error:", error);
+    return res.status(400).json(error);
   }
 };
 exports.deletecart = async (req, res) => {
   try {
-    const user_id = req.body.user_id;
-
-    const addedCourses = await carts.findOne({ where: { user_id: user_id } });
-    if (addedCourses == null) {
+    const stuData = await students.findOne({
+      where: { UserId: req.params.id },
+    });
+    if (stuData == null) {
       return res.json({
-        message: "your cart is empty",
+        status: "failed",
+        message: "not a student",
       });
     }
-
-    let cartcourses = null;
-    if (addedCourses != null) cartcourses = addedCourses.course_id;
-    const cart = {
-      user_id: req.body.user_id,
-      course_id: [],
-    };
-    const index = cartcourses.indexOf(req.body.course_id);
-    if (index > -1) {
-      cartcourses.splice(index, 1);
-    }
-    if (cartcourses != null) {
-      console.log(cartcourses);
-      cart.course_id.push(cartcourses);
-    }
-
-    console.log(cart);
-
-    carts
-      .update(cart, { where: { user_id: req.body.user_id } })
-      .then(async () => {
-        //console.log(result)
-        const response = await carts.findOne({
-          where: { user_id: req.body.user_id },
+    const course_id = req.body.course_id;
+    const cart_id = req.body.cart_id;
+    try {
+      const response = await cartItems.destroy({
+        where: {
+          [Op.and]: [{ CourseId: course_id }, { CartId: cart_id }],
+        },
+      });
+      if (response == 1)
+        res.json({
+          status: "success",
+          message: "removed from cart successfully",
         });
-        return res.status(200).json(response);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
+      else {
+        res.json({
+          status: "failed",
+          message: "course not found",
+        });
+      }
+    } catch (error) {
+      res.status(400).json(error);
+    }
   } catch (error) {
-    console.log("Error:", error);
+    res.status(400).json(error);
+  }
+};
+exports.saveForLater = async (req, res) => {
+  try {
+    const stuData = await students.findOne({
+      where: { UserId: req.params.id },
+    });
+    if (stuData == null) {
+      return res.json({
+        status: "failed",
+        message: "not a student",
+      });
+    }
+    const course_id = req.body.course_id;
+    const cart_id = req.body.cart_id;
+    const response = await cartItems.update(
+      { saveForLater: true },
+      {
+        where: {
+          [Op.and]: [{ CourseId: course_id }, { CartId: cart_id }],
+        },
+      }
+    );
+    if (response == 1)
+      return res.json({
+        status: "success",
+        message: "saved for later",
+      });
+    else {
+      return res.json({
+        status: "failed",
+        message: "no record found",
+      });
+    }
+  } catch (error) {
+    res.status(400).json(error);
+  }
+};
+exports.moveTocart = async (req, res) => {
+  try {
+    const stuData = await students.findOne({
+      where: { UserId: req.params.id },
+    });
+    if (stuData == null) {
+      return res.json({
+        status: "failed",
+        message: "not a student",
+      });
+    }
+    const course_id = req.body.course_id;
+    const cart_id = req.body.cart_id;
+    const response = await cartItems.update(
+      { saveForLater: false },
+      {
+        where: {
+          [Op.and]: [{ CourseId: course_id }, { CartId: cart_id }],
+        },
+      }
+    );
+    if (response == 1)
+      return res.json({
+        status: "success",
+        message: "moved to cart",
+      });
+    else {
+      return res.json({
+        status: "failed",
+        message: "no record found",
+      });
+    }
+  } catch (error) {
+    res.status(400).json(error);
   }
 };

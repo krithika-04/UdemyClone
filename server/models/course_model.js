@@ -7,8 +7,7 @@ module.exports = (sequelize, Sequelize) => {
         type: Sequelize.STRING
       },
       price:{
-        type:Sequelize.INTEGER,
-        
+        type:Sequelize.INTEGER,  
       },
       paid:{
         type: Sequelize.BOOLEAN,
@@ -28,9 +27,9 @@ module.exports = (sequelize, Sequelize) => {
         type:Sequelize.STRING
       },
       rating:{
-        //type:Sequelize.
+        type:Sequelize.FLOAT,
+        defaultValue:0
       }
-      //lesson add pannu
     });
   
     return Course;
